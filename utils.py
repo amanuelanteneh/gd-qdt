@@ -1,5 +1,6 @@
 from math import sqrt
 
+import matplotlib.pyplot as plt
 import torch as th
 import numpy as np
 import scipy.linalg as scplin
@@ -41,30 +42,6 @@ def grid_points(n: int, xlim=(-1.0, 1.0), ylim=(-1.0, 1.0), dtype=th.complex128)
     return Z.reshape(-1).to(dtype)
 
 
-def random_stiefel(rows: int, cols: int, dtype: th.dtype = th.float64) -> th.Tensor:
-    """
-    Generates a random matrix on the Stiefel manifold 
-    St(rows, cols) i.e. a random complex matrix with orthonormal columns.
-
-    Args:
-        rows: The number of rows in the matrix.
-        cols: The number of columns in the matrix.
-
-    Returns:
-        Tensor: A complex matrix with orthonormal columns.
-    """
-    # Generate a random complex matrix
-    # Real and imaginary parts are drawn from a standard normal distribution
-    random_real = th.randn(rows, cols, dtype=dtype)
-    random_imag = th.randn(rows, cols, dtype=dtype)
-    random_complex_matrix = th.complex(random_real, random_imag)
-
-    # Perform QR decomposition
-    # The 'Q' matrix will have orthonormal columns
-    Q, _ = th.linalg.qr(random_complex_matrix)
-
-    return Q
-
 def check_povm_validity(povm: list[th.Tensor], tol: float = 1e-6) -> bool:
     """
     Check if a given POVM is valid.
@@ -92,6 +69,48 @@ def check_povm_validity(povm: list[th.Tensor], tol: float = 1e-6) -> bool:
 
     return True
 
+def on_stiefel(mat: th.Tensor, tol: float = 1e-6) -> bool:
+    """
+    Check if a given matrix is on the Stiefel manifold
+
+    Args:
+        mat: nxp matrix
+        tol: Tolerance for numerical checks.    
+    Returns:
+        bool: True if the POVM is valid, False otherwise. 
+    """
+    # Check orthonormality
+    identity = th.eye(mat.shape[1], dtype=mat[0].dtype)
+    if th.linalg.norm(mat.H @ mat - identity, ord=2) > tol:
+        print("Matrix is not orthonormal")
+        return False
+
+    return True
+
+def random_stiefel(rows: int, cols: int, dtype: th.dtype = th.float64) -> th.Tensor:
+    """
+    Generates a random matrix on the Stiefel manifold 
+    St(rows, cols) i.e. a random complex matrix with orthonormal columns.
+
+    Args:
+        rows: The number of rows in the matrix.
+        cols: The number of columns in the matrix.
+
+    Returns:
+        Tensor: A complex matrix with orthonormal columns.
+    """
+    # Generate a random complex matrix
+    # Real and imaginary parts are drawn from a standard normal distribution
+    random_real = th.randn(rows, cols, dtype=dtype)
+    random_imag = th.randn(rows, cols, dtype=dtype)
+    random_complex_matrix = th.complex(random_real, random_imag)
+
+    # Perform QR decomposition
+    # The 'Q' matrix will have orthonormal columns
+    Q, _ = th.linalg.qr(random_complex_matrix)
+
+    return Q
+
 def random_povm(N: int, M: int) -> list[th.Tensor]:
     """
     Generate a random POVM {E_i} on an N-dimensional Hilbert space
@@ -116,4 +135,50 @@ def random_povm(N: int, M: int) -> list[th.Tensor]:
     Es = [S_inv_sqrt @ F @ S_inv_sqrt for F in Fs]
 
     return Es
+
+def plot_matrix(
+    matrix,
+    title="Matrix Plot",
+    cmap="viridis",
+    show_values=False,
+    xlabel="Columns",
+    ylabel="Rows",
+    colorbar=True,
+    figsize=(6, 5),
+    vmin=None,
+    vmax=None
+):
+    """
+    Plots a 2D matrix using matplotlib.
+
+    Args:
+        matrix (np.ndarray): 2D matrix to plot.
+        title (str): Title of the plot.
+        cmap (str): Colormap (e.g. 'viridis', 'plasma', 'RdBu', 'gray').
+        show_values (bool): If True, display values inside cells.
+        xlabel (str): Label for x-axis.
+        ylabel (str): Label for y-axis.
+        colorbar (bool): Whether to display colorbar.
+        figsize (tuple): Figure size in inches.
+        vmin, vmax: Optional limits for color scale.
+    """
+    matrix = np.array(matrix)
+
+    plt.figure(figsize=figsize)
+    im = plt.imshow(matrix, cmap=cmap, origin="upper", vmin=vmin, vmax=vmax)
+
+    if colorbar:
+        plt.colorbar(im, fraction=0.046, pad=0.04)
+
+    if show_values:
+        for i in range(matrix.shape[0]):
+            for j in range(matrix.shape[1]):
+                plt.text(j, i, f"{matrix[i, j]:.2f}",
+                         ha="center", va="center", color="white" if abs(matrix[i, j]) > (np.max(matrix)/2) else "black")
+
+    plt.title(title)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.tight_layout()
+    plt.show()
 

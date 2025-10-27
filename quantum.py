@@ -1,5 +1,5 @@
 from math import gamma, sqrt, exp
-from torch import Tensor, tensor, linalg, dtype, complex128
+from torch import Tensor, tensor, linalg, dtype, complex128, outer
 
 def coherent_ket(
     alpha: complex, dim: int, dtype: dtype = complex128
@@ -20,3 +20,17 @@ def coherent_ket(
     ket /= norm  # normalize ket
 
     return ket
+
+def coherent_dm(
+    alpha: complex, dim: int, dtype: dtype = complex128
+) -> Tensor:
+    """
+    Returns the density matrix of the coherent 
+    state (displaced vacuum state): D(α)|0⟩⟨0|D(α)†
+    Note that math.gamma(n) computes (n-1)! not n! so be careful.
+    """
+
+    ket = coherent_ket(alpha, dim, dtype=dtype)
+    dm = outer(ket, ket.conj())
+
+    return dm
