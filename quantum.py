@@ -46,34 +46,41 @@ def coherent_dm(
     return dm
 
 
-def lossy_pnr_povm(hilbert_dim: int, eta: float, device=None, dtype=th.float64) -> list[Tensor]:
+def lossy_pnr_povm(hilbert_dim: int, N: int, eta: float, dtype=th.float64) -> list[th.Tensor]:
     """
-    Returns the POVM of a PNR detector with quantum efficiency `eta`
-    with a Fock space truncation of `hilbert_dim` constructed according to the 
-    formula in Millers thesis. Note however that the inner loop starts not at
-    0 but m 
+    Returns the POVM of a lossy PNR detector (up to N detected photons)
+    with quantum efficiency `eta` and a Fock-space truncation of `hilbert_dim`.
+
+    Based on Miller's thesis formula:
+        ⟨n|Π_k|n⟩ = C(n, k) * η^k * (1 - η)^(n - k)
+    for 0 <= k <= min(n, N).
 
     Args:
-        hilbert_dim: Hilbert space cutoff (max photon number)
-        eta: detection efficiency (0 <= eta <= 1)
-        device, dtype: optional torch settings
+        hilbert_dim: Hilbert space cutoff (max photon number considered).
+        N: maximum number of detected photons (PNR resolution).
+        eta: detection efficiency (0 ≤ eta ≤ 1).
+        device, dtype: optional torch settings.
 
     Returns:
-        povms: list of N tensors [Π_0, Π_1, ..., Π_{N-1}], each (hilbert_dim, hilbert_dim), diagonal.
+        povms: list of N+1 tensors [Π₀, Π₁, ..., Π_N], each (hilbert_dim, hilbert_dim), diagonal.
     """
-    povms = []
+    povms = [th.zeros((hilbert_dim, hilbert_dim), dtype=dtype) for _ in range(N + 1)]
 
-    # Initialize each Π_k as a diagonal tensor
-    povms = [zeros((hilbert_dim, hilbert_dim), device=device, dtype=dtype) for _ in range(hilbert_dim)]
-
-    # Loop over input photon number n (outer loop)
+    # Outer loop over input photon number n
     for n in range(hilbert_dim):
-        # Loop over detected photon number k (inner loop)
-        for k in range(n + 1):
+        # Inner loop over detected photon number k
+        for k in range(min(n, N) + 1):
             p = comb(n, k) * (eta ** k) * ((1 - eta) ** (n - k))
-            povms[k][n, n] = p  # Diagonal element ⟨n|Π_k|n⟩ = P(k|n)
-    
+            povms[k][n, n] = p  # ⟨n|Π_k|n⟩ = P(k|n)
+
+    # Optionally, merge higher counts into Π_N (saturation)
+    if hilbert_dim > N:
+        for n in range(N + 1, hilbert_dim):
+            p = 1 - sum(comb(n, k) * (eta ** k) * ((1 - eta) ** (n - k)) for k in range(N))
+            povms[N][n, n] = p
+
     return povms
+
 
 
 def povm_fidelity(povm_a: Tensor, povm_b: Tensor) -> float:
