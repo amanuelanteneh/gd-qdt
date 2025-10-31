@@ -84,7 +84,26 @@ def lossy_pnr_povm(hilbert_dim: int, N: int, eta: float, dtype=th.float64) -> li
 
 
 def povm_fidelity(povm_a: Tensor, povm_b: Tensor) -> float:
-    
+    """
+     Note formula is from that one paper on recursive povm algo and the HPC tomo paper
+    """
     F = fidelity(Qobj(povm_a), Qobj(povm_b))**2 
     F /= (trace(povm_a)*trace(povm_b))
     return F.real.item()
+
+
+def diagonal_povm_fidelity(povm_a: Tensor, povm_b: Tensor) -> float:
+    """
+    A version of the povm_fidelity function that exploits the fact that 
+    diagonal POVMs (matrices) don't require the full matrix for computations 
+
+    povm_a: An (M,1) tensor that is the diagonal elements of the POVM element
+    povm_b: An (M,1) tensor that is the diagonal elements of the POVM element
+
+    """
+    sqrt_a = th.sqrt(povm_a)
+    F = th.sqrt( sqrt_a * povm_b * sqrt_a )
+    F = th.sum(F)**2
+    F /= ( th.sum(povm_a) * th.sum(povm_b) )
+
+    return F.item()
