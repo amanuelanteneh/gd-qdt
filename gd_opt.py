@@ -3,6 +3,7 @@ from torch import Tensor
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ExponentialLR
 from torch.utils.data import DataLoader, TensorDataset
+from optuna import Trial, TrialPruned
 
 from loss import phase_insensitive_loss_gd
 from custom_types import Hyperparameters
@@ -13,6 +14,8 @@ def learn_phase_insensitive_povm(
     hyperparams: Hyperparameters,
     dataset: TensorDataset,
     lam_smoothing: float,
+    verbose: bool = True,
+    trial: Trial = None
 ) -> tuple[Tensor, list[float], list[float], list[int]]:
     """
     Uses gradient descent to
@@ -32,9 +35,13 @@ def learn_phase_insensitive_povm(
     lr_vals = []
     iters = []
 
-    for iter in tqdm(range(hyperparams.num_epochs), desc="Learning POVM"):
-        
-        iters.append(iter + 1)
+    epochs = (
+        tqdm(range(hyperparams.num_epochs), desc="Learning POVM")
+        if verbose
+        else range(hyperparams.num_epochs)
+    )
+    for epoch in epochs:
+        iters.append(epoch + 1)
         lr_vals.append(scheduler.get_last_lr())
         batch_losses = []
 
@@ -52,7 +59,14 @@ def learn_phase_insensitive_povm(
 
             batch_losses.append(L.item())
 
+
         scheduler.step()
-        losses.append(sum(batch_losses) / len(batch_losses))
+        avg_batch_loss = sum(batch_losses) / len(batch_losses)
+        losses.append(avg_batch_loss)
+        
+        if trial is not None:
+            trial.report(avg_batch_loss, step=epoch)
+            if trial.should_prune():
+                raise TrialPruned()
 
     return logits, losses, lr_vals, iters

@@ -15,15 +15,12 @@ class Hyperparameters:
 
     @classmethod
     def from_optuna_trial(cls, trial: Trial) -> "Hyperparameters":
-        lr = trial.suggest_float("lr", 1e-5, 5e-1, log=True)
-        lr_decay = trial.suggest_float("lr_decay", 0.9, 0.9999, log=True)
+        lr = trial.suggest_float("lr", 1e-5, 2e-1, log=True)
+        lr_decay = trial.suggest_float("lr_decay", 0.9, 0.999, log=True)
         beta1 = trial.suggest_float("beta1", 0.8, 0.999)
         beta2 = trial.suggest_float("beta2", 0.8, 0.999)
         num_epochs = trial.suggest_int("num_epochs", 25, 500, step=5)
-        
-        batch_size = trial.suggest_categorical(
-            "batch_size", [2**n for n in range(6, 9)]
-        )
+        batch_size = trial.suggest_int("batch_size", 50, 250, step=5)
 
         return cls(
             lr=lr,

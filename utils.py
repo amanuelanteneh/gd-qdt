@@ -4,11 +4,44 @@ import matplotlib.pyplot as plt
 import torch as th
 import numpy as np
 import scipy.linalg as scplin
+from scipy.stats import poisson
+from bisect import bisect_left
 
 
 def unstack(tensor: th.Tensor, N: int, M: int) -> th.Tensor:
     """Convert a stacked tensor of shape (MN,N) to shape (M,N,N)"""
     return tensor.view(M, N, N)
+
+
+def find_lambda_for_poisson(M: int, max_lambda: float, threshold: float = 1e-5, tol: float = 1e-8):
+    """
+    Find the largest lambda such that P(X = M) <= threshold
+    for X ~ Poisson(lambda).
+
+    Args:
+        M : The value at which to evaluate the Poisson pmf.
+        threshold : The target upper bound on the probability (default 1e-5).
+        tol : Tolerance for binary search convergence.
+        max_lambda :  Upper bound for search space.
+
+    Returns:
+        Largest lambda such that P(X=M) <= threshold.
+    """
+
+    # Helper: Poisson probability mass function
+    def pmf(lmbda):
+        return poisson.pmf(M, lmbda)
+
+    # Binary search for lambda 
+    low, high = 0.0, float(max_lambda)
+    while high - low > tol:
+        mid = 0.5 * (low + high)
+        print(pmf(mid))
+        if pmf(mid) > threshold:
+            low = mid
+        else:
+            high = mid
+    return high
 
 
 def circle_points(N: int, R: float = 1.0):
@@ -18,6 +51,7 @@ def circle_points(N: int, R: float = 1.0):
     angles = np.linspace(0, 2*np.pi, N, endpoint=False)
     points = R * np.exp(1j * angles)
     return points
+
 
 def grid_points(n: int, xlim=(-1.0, 1.0), ylim=(-1.0, 1.0), dtype=th.complex128):
     """

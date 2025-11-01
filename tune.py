@@ -38,7 +38,7 @@ def objective(
     targets = targets.to(device)
     dataset = TensorDataset(probes, targets)
 
-    logits, losses, lr_vals, iters = learn_phase_insensitive_povm(logits, hyperparams, dataset, lam_smoothing)
+    logits, losses, lr_vals, iters = learn_phase_insensitive_povm(logits, hyperparams, dataset, lam_smoothing, True, trial)
 
     trial.set_user_attr("logits", logits)
     trial.set_user_attr("losses", losses)

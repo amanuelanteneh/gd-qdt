@@ -50,7 +50,7 @@ def phase_sensitive_loss_gd(
 
 
 def phase_insensitive_loss_gd(
-    targets: Tensor, logits: Tensor, probes: Tensor, lam: float
+    targets: Tensor, logits: Tensor, probes: Tensor, lam_smoothing: float
 ):
     """
     Differentiable loss for POVM optimization (vectorized).
@@ -76,15 +76,15 @@ def phase_insensitive_loss_gd(
     sq_err = th.sum((pred_probs - targets) ** 2)
 
     # Regularization term (smoothness across consecutive POVM elements)
-    reg = th.sum((Pi[:-1, :] - Pi[1:, :]) ** 2).real
+    reg = lam_smoothing * th.sum((Pi[:-1, :] - Pi[1:, :]) ** 2).real
     # reg += th.sum(th.abs(povm_probs))  # L1 regularization
 
     # Total loss (negative for maximization if needed)
-    return sq_err + lam * reg
+    return sq_err +  reg
 
 
 def phase_insensitive_loss_cvx(
-    targets: np.ndarray, probes: np.ndarray, lam: float = 0.1, solver: str = "SCS"
+    targets: np.ndarray, probes: np.ndarray, lam: float = 0.1, solver: str = "MOSEK"
 ) -> tuple[np.ndarray, float, int]:
     """
     Solve convex optimization of phase-insensitive POVM loss using CVXPY.
