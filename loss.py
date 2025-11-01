@@ -1,9 +1,14 @@
+import numpy as np
+import cvxpy as cp
 import torch as th
-from torch import Tensor, softmax
+from torch import Tensor
 
 from utils import unstack
 
-def povm_loss(targets: Tensor, factors: Tensor, probes: Tensor, lam: float) -> Tensor:
+
+def phase_sensitive_loss_gd(
+    targets: Tensor, factors: Tensor, probes: Tensor, lam: float
+) -> Tensor:
     """
     Differentiable loss for POVM optimization (vectorized).
 
@@ -36,17 +41,17 @@ def povm_loss(targets: Tensor, factors: Tensor, probes: Tensor, lam: float) -> T
 
     # Squared error loss
     sq_err = th.sum((pred_probs - targets) ** 2)
-    #sq_err = th.linalg.matrix_norm(pred_probs - targets, ord='fro')
-    #sq_err = th.linalg.matrix_norm(pred_probs - targets, ord='nuc')
-    
+
     # L1 regularization on povm elements
-    reg = th.linalg.norm(povm.view((M*N, N)), ord=1) #th.sum(th.abs(povm))
+    reg = th.linalg.norm(povm.view((M * N, N)), ord=1)  # th.sum(th.abs(povm))
 
     # Total loss (negative for maximization if needed)
-    return (sq_err + lam * reg)
+    return sq_err + lam * reg
 
 
-def phase_insensitive_povm_loss(targets: Tensor, logits: Tensor, probes: Tensor, lam: float):
+def phase_insensitive_loss_gd(
+    targets: Tensor, logits: Tensor, probes: Tensor, lam: float
+):
     """
     Differentiable loss for POVM optimization (vectorized).
 
@@ -62,25 +67,59 @@ def phase_insensitive_povm_loss(targets: Tensor, logits: Tensor, probes: Tensor,
     """
 
     # Compute POVM elements
-    povm_probs = th.softmax(logits, dim=1).to(th.float64)  # rows are probability vectors
-    # x2 = logits ** 2
-    # norm = x2.sum(dim=0, keepdim=True).to(dtype=th.complex128) + 1e-12
-    # povm_probs = x2 / norm
-    # povm = th.stack([ th.diag(povm_probs[i, :]) for i in range(M) ])  # row i is the diagonal of povm element E_i
+    Pi = th.softmax(logits, dim=1).to(th.float64)  # rows are probability vectors
 
     # Compute predicted probabilities:
-    #pred_probs = th.einsum("bi,mij,bj->bm", probes.conj(), povm, probes).real
-    pred_probs = probes @ povm_probs
+    pred_probs = probes @ Pi
 
     # Squared error loss
     sq_err = th.sum((pred_probs - targets) ** 2)
-    #sq_err = th.linalg.matrix_norm(pred_probs - targets, ord='fro')
-    #sq_err = th.linalg.matrix_norm(pred_probs - targets, ord='nuc')
-    
-    # L1 regularization on povm elements
-    #reg = th.linalg.norm(povm.view((M*N, N)), ord=1) #th.sum(th.abs(povm))
-    reg = th.sum((povm_probs[:-1, :] - povm_probs[1:, :]) ** 2).real
-    #reg += th.sum(th.abs(povm_probs))  # L1 regularization
+
+    # Regularization term (smoothness across consecutive POVM elements)
+    reg = th.sum((Pi[:-1, :] - Pi[1:, :]) ** 2).real
+    # reg += th.sum(th.abs(povm_probs))  # L1 regularization
 
     # Total loss (negative for maximization if needed)
-    return (sq_err + lam * reg)
+    return sq_err + lam * reg
+
+
+def phase_insensitive_loss_cvx(
+    targets: np.ndarray, probes: np.ndarray, lam: float = 0.1, solver: str = "SCS"
+) -> tuple[np.ndarray, float, int]:
+    """
+    Solve convex optimization of phase-insensitive POVM loss using CVXPY.
+    D = num_probes, N = number of POVM elements (outcomes), M = Hilbert dim
+
+    Args:
+        targets: (D, N) real numpy array — target probabilities
+        probes: (D, M) real numpy array — probe state Fock probabilities
+        lam: regularization coefficient
+    Returns:
+        Problem solution, solution loss value, number of iterations to converge
+    """
+
+    _, M = probes.shape
+    N = targets.shape[1]
+
+    # Variables: POVM diagonals (each column = diagonal of one POVM element)
+    Pi = cp.Variable((M, N), nonneg=True)
+
+    # Normalization constraint: sum over all POVM elements = I (each ROW (axis=1) sums to 1)
+    constraints = [cp.sum(Pi, axis=1) == 1]
+
+    # Predicted probabilities: p[m, b] = |ψ_b|^2 ⋅ Π_m
+    pred_probs = probes @ Pi  # shape (D, M)
+
+    sq_err = cp.sum_squares(pred_probs - targets)
+
+    # Regularization term (smoothness across consecutive POVM elements)
+    reg = cp.sum_squares(Pi[:-1, :] - Pi[1:, :])
+    # reg += cp.sum(cp.norm1(Pi))  # L1 regularization
+
+    objective = cp.Minimize(sq_err + lam * reg)
+
+    problem = cp.Problem(objective, constraints)
+
+    problem.solve(solver=solver, verbose=False)
+
+    return Pi.value, problem.value, problem.solver_stats.num_iters

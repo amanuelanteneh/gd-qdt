@@ -42,7 +42,7 @@ def grid_points(n: int, xlim=(-1.0, 1.0), ylim=(-1.0, 1.0), dtype=th.complex128)
     return Z.reshape(-1).to(dtype)
 
 
-def check_povm_validity(povm: list[th.Tensor], tol: float = 1e-6) -> bool:
+def check_povm(povm: list[th.Tensor], tol: float = 1e-6) -> bool:
     """
     Check if a given POVM is valid.
 
@@ -65,6 +65,36 @@ def check_povm_validity(povm: list[th.Tensor], tol: float = 1e-6) -> bool:
     sum_E = sum(povm)
     if th.linalg.norm(sum_E - identity, ord=2) > tol:
         print("POVM elements do not sum to identity.")
+        return False
+
+    return True
+
+
+def check_diag_povm(povm: list[th.Tensor], tol: float = 1e-6) -> bool:
+    """
+    Check if a given (diagonal) POVM is valid. For a diagonal matrix 
+    the diagonals are the eigenvalues so we will exploit this fact to avoid
+    constructing the full dense matrix.
+
+    Args:
+        povm: List of POVM (diagonal) elements (tensors).
+        tol: Tolerance for numerical checks.    
+    Returns:
+        bool: True if the POVM is valid, False otherwise. 
+    """
+
+    # Check positivity
+    for E_diag in povm:
+        if th.any(E_diag < -tol):
+            print("One or more POVM elements is not positive semi-definite.")
+            return False
+
+    # Check completeness
+    identity = th.ones(povm[0].shape[0])
+    sum_E = sum(povm)
+    err = th.linalg.norm(sum_E - identity, ord=2)
+    if err > tol:
+        print(f"POVM elements do not sum to identity. Error is {err}")
         return False
 
     return True
