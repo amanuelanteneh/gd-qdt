@@ -18,7 +18,9 @@ def learn_phase_insensitive_povm(
     trial: Trial = None
 ) -> tuple[Tensor, list[float], list[float], list[int]]:
     """
-    Uses gradient descent to
+    Uses gradient descent to learn a POVM that minimizes 
+    Args:
+
     """
 
     optimizer = Adam(
@@ -40,6 +42,7 @@ def learn_phase_insensitive_povm(
         if verbose
         else range(hyperparams.num_epochs)
     )
+    
     for epoch in epochs:
         iters.append(epoch + 1)
         lr_vals.append(scheduler.get_last_lr())
@@ -59,11 +62,10 @@ def learn_phase_insensitive_povm(
 
             batch_losses.append(L.item())
 
-
         scheduler.step()
         avg_batch_loss = sum(batch_losses) / len(batch_losses)
         losses.append(avg_batch_loss)
-        
+
         if trial is not None:
             trial.report(avg_batch_loss, step=epoch)
             if trial.should_prune():

@@ -24,7 +24,8 @@ def phase_sensitive_loss_gd(
 
     N = probes.shape[1]
     M = targets.shape[1]
-
+    U = probes.shape[0]
+    #targets = targets.T
     # Reshape factors into (M, N, N)
     factors = unstack(factors, N=N, M=M)
 
@@ -38,15 +39,21 @@ def phase_sensitive_loss_gd(
     #   m = POVM element index
     #   i,j = Hilbert indices
     pred_probs = th.einsum("bi,mij,bj->bm", probes.conj(), povm, probes).real
+    # rows = []
+    # for i in range(M):
+    #     row = [th.trace(povm[i] @ probes[j]).real for j in range(U)]
+    #     rows.append(th.hstack(row))
+    
+    # pred_probs = th.vstack(rows)
 
     # Squared error loss
     sq_err = th.sum((pred_probs - targets) ** 2)
 
     # L1 regularization on povm elements
-    reg = th.linalg.norm(povm.view((M * N, N)), ord=1)  # th.sum(th.abs(povm))
+    reg = lam * th.sum(th.abs(povm))
 
     # Total loss (negative for maximization if needed)
-    return sq_err + lam * reg
+    return sq_err + reg
 
 
 def phase_insensitive_loss_gd(

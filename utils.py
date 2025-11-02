@@ -13,7 +13,7 @@ def unstack(tensor: th.Tensor, N: int, M: int) -> th.Tensor:
     return tensor.view(M, N, N)
 
 
-def find_lambda_for_poisson(M: int, max_lambda: float, threshold: float = 1e-5, tol: float = 1e-8):
+def find_lambda_for_poisson(M: int, threshold: float = 1e-5):
     """
     Find the largest lambda such that P(X = M) <= threshold
     for X ~ Poisson(lambda).
@@ -21,27 +21,20 @@ def find_lambda_for_poisson(M: int, max_lambda: float, threshold: float = 1e-5, 
     Args:
         M : The value at which to evaluate the Poisson pmf.
         threshold : The target upper bound on the probability (default 1e-5).
-        tol : Tolerance for binary search convergence.
-        max_lambda :  Upper bound for search space.
 
     Returns:
         Largest lambda such that P(X=M) <= threshold.
     """
 
-    # Helper: Poisson probability mass function
-    def pmf(lmbda):
-        return poisson.pmf(M, lmbda)
+    max_nbar = 0
+    nbars = np.linspace(0, M, 2*M)  # upper bound on nbar is M obv
 
-    # Binary search for lambda 
-    low, high = 0.0, float(max_lambda)
-    while high - low > tol:
-        mid = 0.5 * (low + high)
-        print(pmf(mid))
-        if pmf(mid) > threshold:
-            low = mid
-        else:
-            high = mid
-    return high
+    for nbar in nbars:
+        if poisson.pmf(M, nbar) < threshold and nbar > max_nbar:
+            max_nbar = nbar
+
+    return max_nbar
+
 
 
 def circle_points(N: int, R: float = 1.0):

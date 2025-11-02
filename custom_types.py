@@ -19,8 +19,8 @@ class Hyperparameters:
         lr_decay = trial.suggest_float("lr_decay", 0.9, 0.999, log=True)
         beta1 = trial.suggest_float("beta1", 0.8, 0.999)
         beta2 = trial.suggest_float("beta2", 0.8, 0.999)
-        num_epochs = trial.suggest_int("num_epochs", 25, 500, step=5)
-        batch_size = trial.suggest_int("batch_size", 50, 250, step=5)
+        num_epochs = trial.suggest_int("num_epochs", 25, 100, step=5)
+        batch_size = trial.suggest_int("batch_size", 20, 70, step=5)
 
         return cls(
             lr=lr,
