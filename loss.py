@@ -74,7 +74,7 @@ def phase_insensitive_loss_gd(
     """
 
     # Compute POVM elements
-    Pi = th.softmax(logits, dim=1).to(th.float64)  # rows are probability vectors
+    Pi = th.softmax(logits, dim=1) # rows are probability vectors
 
     # Compute predicted probabilities:
     pred_probs = probes @ Pi
@@ -83,10 +83,12 @@ def phase_insensitive_loss_gd(
     sq_err = th.sum((pred_probs - targets) ** 2)
 
     # Regularization term (smoothness across consecutive POVM elements)
-    reg = lam_smoothing * th.sum((Pi[:-1, :] - Pi[1:, :]) ** 2).real
-    # reg += th.sum(th.abs(povm_probs))  # L1 regularization
+    reg = lam_smoothing * th.sum((Pi[:-1, :] - Pi[1:, :]) ** 2)
+    
+    # LASSO (L1) regularization term
+    # reg += th.sum(th.abs(Pi))  # L1 regularization
 
-    # Total loss (negative for maximization if needed)
+    # Total loss
     return sq_err +  reg
 
 
