@@ -5,7 +5,7 @@ from torch.optim.lr_scheduler import ExponentialLR
 from torch.utils.data import DataLoader, TensorDataset
 from optuna import Trial, TrialPruned
 
-from loss import phase_insensitive_loss_gd
+from src.loss import phase_insensitive_loss_gd
 from custom_types import Hyperparameters
 
 

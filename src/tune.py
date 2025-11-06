@@ -3,7 +3,7 @@ from torch import Tensor
 from torch.utils.data import TensorDataset
 from optuna import Trial
 
-from gd_opt import learn_phase_insensitive_povm
+from src.gd_opt import learn_phase_insensitive_povm
 from custom_types import Hyperparameters
 
 

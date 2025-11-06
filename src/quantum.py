@@ -46,45 +46,43 @@ def coherent_dm(
     return dm
 
 
-def pnr_povm(hilbert_dim: int, N: int, eta: float) -> list[th.Tensor]:
+def pnr_povm(hilbert_dim: int, N: int, eta: float, dtype=th.float32) -> list[th.Tensor]:
     """
-    Returns the POVM of a PNR detector (up to N detected photons) with efficiency η
+    Returns the POVM of a PNR detector (up to N detected photons)
     with quantum efficiency `eta` and a Fock-space truncation of `hilbert_dim`.
-    See Millers thesis section 6.1 `Detector POVMs` for more.
 
-    if 0 < n < N-2:
-        E_n = sum_{k=0}^{M-1} (k choose n) * η^n * (1 - η)^(k - n) * |k><k|
-    if n = N-1:
-        E_N = I_M - sum_{k=0}^{N-2} E_k
+    Based on formula (See Millers thesis section 6.1 `Detector POVMs` for more.):
+        ⟨n|Π_k|n⟩ = C(n, k) * η^k * (1 - η)^(n - k)
+    for 0 <= k <= min(n, N).
 
     Args:
         hilbert_dim: Hilbert space cutoff (max photon number considered).
         N: maximum number of detected photons (PNR resolution).
         eta: detection efficiency (0 ≤ eta ≤ 1).
+
     Returns:
         povms: list of N+1 tensors [Π₀, Π₁, ..., Π_N], each (hilbert_dim, hilbert_dim), diagonal.
     """
-    
-    assert hilbert_dim >= N, "Hilbert space truncation must be at least as large as detector resolution"
-    
-    povm = []
-    
-    for n in range(0, N):
-        En = th.zeros((hilbert_dim, hilbert_dim))
-        for k in range(n, hilbert_dim):
-            fock_proj = th.zeros((hilbert_dim, hilbert_dim))
-            fock_proj[k,k] = 1.0
-            P_n_given_k = comb(k, n) * (eta**n) * ((1.0-eta)**(k-n))
-            En += P_n_given_k * fock_proj
+    povm = [th.zeros((hilbert_dim, hilbert_dim), dtype=dtype) for _ in range(N + 1)]
 
-        povm.append(En)
+    # Outer loop over input photon number n
+    for n in range(hilbert_dim):
+        # Inner loop over detected photon number k
+        for k in range(min(n, N) + 1):
+            p = comb(n, k) * (eta ** k) * ((1 - eta) ** (n - k))
+            povm[k][n, n] = p  # ⟨n|Π_k|n⟩ = P(k|n)
 
-    povm.append( th.eye(hilbert_dim) - sum(povm) )
+    # Merge higher counts into Π_N (saturation) if Hilbert space is larger than detector resolution
+    # I - ΣE_i for 0 ≤ eta ≤ N-1
+    if hilbert_dim > N:
+        for n in range(N + 1, hilbert_dim):
+            p = 1 - sum(comb(n, k) * (eta ** k) * ((1 - eta) ** (n - k)) for k in range(N))
+            povm[N][n, n] = p
 
-    return povm    
+    return povm 
     
 
-def photodetector_povm(hilbert_dim: int, eta: float, dtype=th.float64) -> list[th.Tensor]:
+def photodetector_povm(hilbert_dim: int, eta: float, dtype=th.float32) -> list[th.Tensor]:
     """
     Returns the POVM elements of a (lossy) on–off photodetector with efficiency `eta`.
     With probability ∑ₙ (1 - η)ⁿ the detector doesn't click when there are photons present.

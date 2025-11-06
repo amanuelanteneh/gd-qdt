@@ -13,28 +13,29 @@ def unstack(tensor: th.Tensor, N: int, M: int) -> th.Tensor:
     return tensor.view(M, N, N)
 
 
-def find_lambda_for_poisson(M: int, threshold: float = 1e-5):
+def find_lambda_max(M: int, eps: float = 1e-5):
     """
-    Find the largest lambda such that P(X = M) <= threshold
-    for X ~ Poisson(lambda).
+    Find the largest lambda (coherent state average photon number) such that 1 - F(M-1; lambda) <= eps,
+    where F is the Poisson CDF.
 
     Args:
-        M : The value at which to evaluate the Poisson pmf.
-        threshold : The target upper bound on the probability (default 1e-5).
+        M: Fock-space cutoff (integer)
+        eps: tolerance (float)
 
     Returns:
-        Largest lambda such that P(X=M) <= threshold.
+        lambda_max (float)
     """
+    low, hi = 0.0, float(M-1) 
 
-    max_nbar = 0
-    nbars = np.linspace(0, M, 2*M)  # upper bound on nbar is M obv
+    for _ in range(100):
+        mid = 0.5 * (low + hi)
+        tail = 1 - poisson.cdf(M, mid)
+        if tail > eps:
+            hi = mid
+        else:
+            low = mid
 
-    for nbar in nbars:
-        if poisson.pmf(M, nbar) < threshold and nbar > max_nbar:
-            max_nbar = nbar
-
-    return max_nbar
-
+    return low
 
 
 def circle_points(N: int, R: float = 1.0):
