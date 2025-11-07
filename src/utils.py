@@ -5,7 +5,6 @@ import torch as th
 import numpy as np
 import scipy.linalg as scplin
 from scipy.stats import poisson
-from bisect import bisect_left
 
 
 def unstack(tensor: th.Tensor, N: int, M: int) -> th.Tensor:
