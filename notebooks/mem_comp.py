@@ -24,12 +24,12 @@ plt.rcParams.update({"text.usetex": True, "font.family": "Helvetica"})
 seed = 42  # for reproducibility
 th.manual_seed(seed)
 
-Ms = range(100, 3000, 500)
+Ms = range(100, 700, 50)
 device = 'cpu'
 N = 25
 D = 2000
-eta = 0.85
-lam_smoothing = 1e-5
+eta = 1.
+lam_smoothing = 0e-5
 mem_gd = []
 mem_mosek = []
 avg_fids_mosek = []
@@ -57,18 +57,18 @@ for M in tqdm(Ms, desc="Performing memory experiments"):
     dataset = TensorDataset(probes, targets)
 
     # compute mems
-    # base_line = memory_usage(timeout=1)[0]
-    # mem = memory_usage( (learn_phase_insensitive_povm, (logits, hyperparams, dataset, lam_smoothing, False)), interval=0.1, max_usage=True, include_children=True) - base_line 
-    # mem_gd.append(mem / 1000)  # mem is in Mb divide by 1k to get in Gb
+    base_line = memory_usage(timeout=1)[0]
+    mem = memory_usage( (learn_phase_insensitive_povm, (logits, hyperparams, dataset, lam_smoothing, False)), interval=0.01, max_usage=True, include_children=True)  
+    mem_gd.append((mem - base_line) / 1000)  # mem is in Mb divide by 1k to get in Gb
 
     targets, probes = targets.cpu().numpy(), probes.cpu().numpy()
     base_line = memory_usage(timeout=1)[0]
-    mem = memory_usage( (phase_insensitive_loss_cvx, (targets, probes, lam_smoothing, "MOSEK")), interval=0.1, max_usage=True, include_children=True) - base_line  
-    mem_mosek.append(mem / 1000)
+    mem = memory_usage( (phase_insensitive_loss_cvx, (targets, probes, lam_smoothing, "MOSEK")), interval=0.01, max_usage=True, include_children=True)
+    mem_mosek.append((mem - base_line) / 1000)
 
 
 
-# plt.plot(Ms, mem_gd, label="Gradient Descent", marker="o")
+plt.plot(Ms, mem_gd, label="Gradient Descent", marker="o")
 plt.plot(Ms, mem_mosek, label="CCO", marker="o")
 plt.xlabel(r"\textrm{Hilbert space dimension} $(M)$", fontsize=15)
 plt.ylabel(r"\textrm{Memory (GB)}", fontsize=15)
@@ -76,6 +76,6 @@ plt.ylabel(r"\textrm{Memory (GB)}", fontsize=15)
 plt.legend();
 
 if eta < 1.0:
-    plt.savefig("figs/lossy_memory.png", dpi=300)
+    plt.savefig("figs/lossy/lossy_memory.png", dpi=300, bbox_inches='tight')
 else:
-    plt.savefig("figs/ideal_memory.png", dpi=300)
+    plt.savefig("figs/ideal/ideal_memory.png", dpi=300, bbox_inches='tight')
