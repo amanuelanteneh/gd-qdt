@@ -1,0 +1,1 @@
+Supporting code for the work "Gradient-descent methods for quantum detector tomography" arXiv:2511.14579.
