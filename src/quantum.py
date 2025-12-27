@@ -1,4 +1,6 @@
-from math import gamma, sqrt, exp, comb
+from itertools import product
+from math import exp, comb
+
 import torch as th
 from torch import Tensor, tensor, linalg, dtype, complex128, outer, diag, zeros, tensor, trace
 from torch.special import gammaln
@@ -109,6 +111,69 @@ def photodetector_povm(hilbert_dim: int, eta: float, dtype=th.float32) -> list[t
 
     return [Pi0, Pi1]
 
+def rand_DV_diag_povm(num_qubits: int, dtype=th.float32) -> list[th.Tensor]:
+    """
+    Returns a POVM with 2^num_qubits all diagonal elements with Hilbert space 
+    dimension of size `2^num_qubits.
+
+    Args:
+        num_qubits: Number of qubits (two level systems)
+
+    Returns:
+        povms: list of N+1 tensors [Π₀, Π₁, ..., Π_N], each (hilbert_dim, hilbert_dim), diagonal.
+    """
+    num_povm_elements = 2**num_qubits
+    hilbert_dim = 2**num_qubits
+    povm = []
+    
+    for _ in range(num_povm_elements):
+        p = th.rand(hilbert_dim, dtype=dtype)  # create random 1D vector
+        p = p / p.sum()  # normalize to probability vector
+        p = th.diag(p)   # (2^N, 2^N) diagonal matrix
+        povm.append(p)    
+
+    return povm 
+
+
+def get_qubit_probe_states(num_qubits: int, return_dm: bool = False, povm_is_diag: bool = True, device: str = 'cpu'):
+    """
+    Generate all probe states for `num_qubits` using the standard basis |0>, |1>, |+>, |+i>.
+
+    Args:
+        num_qubits (int): Number of qubits.
+        return_dm (bool): If True, return density matrices instead of kets.
+        povm_is_diag (bool): Wether not the detector POVM is assumed to be diagonal in the computational basis. 
+        device (str): Torch device.
+
+    Returns:
+        torch.Tensor: Tensor of shape (4**num_qubits, 2**num_qubits) for kets,
+                      or (4**num_qubits, 2**num_qubits, 2**num_qubits) for density matrices.
+    """
+    # single-qubit states
+    zero = th.tensor([1.0, 0.0], dtype=th.complex64, device=device)
+    one = th.tensor([0.0, 1.0], dtype=th.complex64, device=device)
+    plus = (zero + one) / th.sqrt(th.tensor(2.0))
+    plus_i = (zero + 1j * one) / th.sqrt(th.tensor(2.0))
+    
+    if povm_is_diag:
+        basis = [zero, one]
+    else:
+        basis = [zero, one, plus, plus_i]
+    
+    # generate all combinations of basis states for num_qubits
+    states = []
+    for combo in product(basis, repeat=num_qubits):
+        ket = combo[0]
+        for b in combo[1:]:
+            ket = th.kron(ket, b)
+        if return_dm:
+            rho = ket.unsqueeze(-1) @ ket.conj().unsqueeze(0)
+            states.append(rho)
+        else:
+            states.append(ket)
+    
+    return th.stack(states)
+
 
 def povm_fidelity(povm_a: Tensor, povm_b: Tensor) -> float:
     """
@@ -146,3 +211,27 @@ def diag_povm_fidelity(povm_a: Tensor, povm_b: Tensor) -> float:
     F /= ( th.sum(povm_a) * th.sum(povm_b) )
 
     return F.real.item()
+
+def compute_expectation_value(state: th.Tensor, operator: th.Tensor) -> float:
+    """
+    Compute the expectation value of an operator given a quantum state.
+    
+    Args:
+        state (Tensor): Either a ket |psi> (shape [dim]) or a density matrix rho (shape [dim, dim])
+        operator (Tensor): Hermitian operator E (shape [dim, dim])
+    
+    Returns:
+        float: expectation value <E>
+    """
+    assert operator.dim() == 2, "Operator must have 2 dimensions."
+    
+    if state.dim() == 1:  # ket
+        # <psi|E|psi>
+        exp_val = th.conj(state) @ operator @ state
+    elif state.dim() == 2:  # density matrix
+        # Tr[rho*E]
+        exp_val = th.trace(state @ operator)
+    else:
+        raise ValueError(f"State must be 1D (ket) or 2D (density matrix), got shape {state.shape}")
+    
+    return exp_val.real.item()

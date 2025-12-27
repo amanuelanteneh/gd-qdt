@@ -57,7 +57,7 @@ def phase_sensitive_loss_gd(
 
 
 def phase_insensitive_loss_gd(
-    targets: Tensor, logits: Tensor, probes: Tensor, lam_smoothing: float
+    targets: Tensor, logits: Tensor, probes: Tensor, lam_smoothing: float, lam_l1: float = 0.0
 ):
     """
     Differentiable loss for POVM optimization (vectorized).
@@ -86,14 +86,14 @@ def phase_insensitive_loss_gd(
     reg = lam_smoothing * th.sum((Pi[:-1, :] - Pi[1:, :]) ** 2)
     
     # LASSO (L1) regularization term
-    # reg += th.sum(th.abs(Pi))  # L1 regularization
+    reg += lam_l1 * th.sum(th.abs(Pi))  # L1 regularization
 
     # Total loss
     return sq_err +  reg
 
 
 def phase_insensitive_loss_cvx(
-    targets: np.ndarray, probes: np.ndarray, lam: float = 0.1, solver: str = "MOSEK"
+    targets: np.ndarray, probes: np.ndarray, lam_smooth: float = 0.1, solver: str = "MOSEK", lam_l1: float = 0.0
 ) -> tuple[np.ndarray, float, int]:
     """
     Solve convex optimization of phase-insensitive POVM loss using CVXPY.
@@ -122,10 +122,11 @@ def phase_insensitive_loss_cvx(
     sq_err = cp.sum_squares(pred_probs - targets)
 
     # Regularization term (smoothness across consecutive POVM elements)
-    reg = cp.sum_squares(Pi[:-1, :] - Pi[1:, :])
-    # reg += cp.sum(cp.norm1(Pi))  # L1 regularization
+    reg = lam_smooth * cp.sum_squares(Pi[:-1, :] - Pi[1:, :]) 
+    # L1 regularization
+    reg += lam_l1 *  cp.sum(cp.norm1(Pi))  
 
-    objective = cp.Minimize(sq_err + lam * reg)
+    objective = cp.Minimize(sq_err + reg)
 
     problem = cp.Problem(objective, constraints)
 

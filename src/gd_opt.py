@@ -15,7 +15,8 @@ def learn_phase_insensitive_povm(
     dataset: TensorDataset,
     lam_smoothing: float,
     verbose: bool = True,
-    trial: Trial = None
+    trial: Trial = None,
+    lam_l1: float = 0.0
 ) -> tuple[Tensor, list[float], list[float], list[int]]:
     """
     Uses gradient descent to learn a POVM that minimizes 
@@ -53,7 +54,7 @@ def learn_phase_insensitive_povm(
 
             # Compute batch loss
             L = phase_insensitive_loss_gd(
-                targets_batch, logits, probes_batch, lam_smoothing
+                targets_batch, logits, probes_batch, lam_smoothing, lam_l1
             )
 
             L.backward()
