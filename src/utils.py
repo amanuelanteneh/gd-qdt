@@ -165,7 +165,7 @@ def check_diag_povm(povm: list[th.Tensor], tol: float = 1e-6) -> bool:
     sum_E = sum(povm)
     err = th.linalg.norm(sum_E - identity, ord=2)
     if err > tol:
-        print(f"POVM elements do not sum to identity. Error is {err}")
+        print(f"WARNING: Error on |I - ΣE_i|^2 is: {err}")
         return False
 
     return True
