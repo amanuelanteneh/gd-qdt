@@ -174,6 +174,35 @@ def get_qubit_probe_states(num_qubits: int, return_dm: bool = False, povm_is_dia
     
     return th.stack(states)
 
+def apply_t1_to_populations(probes: th.Tensor, gamma: float, num_qubits: int) -> th.Tensor:
+    """
+    Apply T1 relaxation to diagonal populations of D probe states.
+
+    probes: (D, M) tensor, M = 2**N
+    gamma: scalar T1 probability
+
+    Returns:
+        P_out: (D, M)
+    """
+    assert 0 <= gamma <= 1, "Relaxation coefficient must be between 0 and 1."
+    D, M = probes.shape
+    N = num_qubits
+
+    # Reshape to (D, 2, 2, ..., 2)
+    probs = probes.view(D, *([2] * N))
+
+    for _ in range(N):
+        # apply T1 along one qubit axis at a time
+        p0 = probs.select(-1, 0)
+        p1 = probs.select(-1, 1)
+
+        new_p0 = p0 + gamma * p1
+        new_p1 = (1 - gamma) * p1
+
+        probs = th.stack([new_p0, new_p1], dim=-1)
+
+    return probs.view(D, M)
+
 
 def povm_fidelity(povm_a: Tensor, povm_b: Tensor) -> float:
     """
