@@ -161,7 +161,7 @@ def check_diag_povm(povm: list[th.Tensor], tol: float = 1e-6) -> bool:
             return False
 
     # Check completeness
-    identity = th.ones(povm[0].shape[0])
+    identity = th.ones(povm[0].shape[0]).to(povm[0].device)
     sum_E = sum(povm)
     err = th.linalg.norm(sum_E - identity, ord=2)
     if err > tol:
