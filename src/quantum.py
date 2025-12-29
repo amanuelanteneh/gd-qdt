@@ -204,6 +204,22 @@ def apply_t1_to_populations(probes: th.Tensor, gamma: float, num_qubits: int) ->
     return probs.view(D, M)
 
 
+def diag_frob_norm(povm_a: Tensor, povm_b: Tensor) -> float:
+    """
+    Computes Frobenius norm Tr[(A-B)^\dag (A-B)] of two diagonal matrices A and B
+
+    povm_a: An (M,1) or (M,) tensor containing the diagonal of A
+    povm_b: An (M,1) or (M,) tensor containing the diagonal of B
+
+    Returns:
+        Frobenius norm squared (a scalar)
+    """
+    diff = povm_a - povm_b
+    frob_sq = th.sum(th.abs(diff) ** 2)
+    return frob_sq.real.item()
+
+
+
 def povm_fidelity(povm_a: Tensor, povm_b: Tensor) -> float:
     """
     Computes the fidelity of two POVM elements according to the formula in 

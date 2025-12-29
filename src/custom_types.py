@@ -11,7 +11,7 @@ class Hyperparameters:
     beta2: float = 0.99
     num_epochs: int = 2
     batch_size: int = 64
-    #lam_smoothing: float = 1e-5
+    weight_decay: float = 0.0
 
     @classmethod
     def from_optuna_trial(cls, trial: Trial) -> "Hyperparameters":

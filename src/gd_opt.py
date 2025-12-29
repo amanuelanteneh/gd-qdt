@@ -25,7 +25,7 @@ def learn_phase_insensitive_povm(
     """
 
     optimizer = Adam(
-        [logits], lr=hyperparams.lr, betas=(hyperparams.beta1, hyperparams.beta2)
+        [logits], lr=hyperparams.lr, betas=(hyperparams.beta1, hyperparams.beta2), weight_decay=hyperparams.weight_decay
     )
 
     # Decay LR by gamma every time called
