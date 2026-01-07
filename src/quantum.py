@@ -146,8 +146,8 @@ def get_qubit_probe_states(num_qubits: int, return_dm: bool = False, povm_is_dia
         device (str): Torch device.
 
     Returns:
-        torch.Tensor: Tensor of shape (4**num_qubits, 2**num_qubits) for kets,
-                      or (4**num_qubits, 2**num_qubits, 2**num_qubits) for density matrices.
+        torch.Tensor: Tensor of shape (2**num_qubits, 2**num_qubits) for kets,
+                      or (2**num_qubits, 2**num_qubits, 2**num_qubits) for density matrices.
     """
     # single-qubit states
     zero = th.tensor([1.0, 0.0], dtype=th.complex64, device=device)
@@ -204,19 +204,19 @@ def apply_t1_to_populations(probes: th.Tensor, gamma: float, num_qubits: int) ->
     return probs.view(D, M)
 
 
-def diag_frob_norm(povm_a: Tensor, povm_b: Tensor) -> float:
+def diag_mse_norm(povm_a: Tensor, povm_b: Tensor) -> float:
     """
-    Computes Frobenius norm Tr[(A-B)^\dag (A-B)] of two diagonal matrices A and B
+    Computes MSE of two diagonal matrices A and B
 
     povm_a: An (M,1) or (M,) tensor containing the diagonal of A
     povm_b: An (M,1) or (M,) tensor containing the diagonal of B
 
     Returns:
-        Frobenius norm squared (a scalar)
+        MSE (a scalar)
     """
     diff = povm_a - povm_b
-    frob_sq = th.sum(th.abs(diff) ** 2)
-    return frob_sq.real.item()
+    mse = th.mean(th.abs(diff) ** 2)
+    return mse.real.item()
 
 
 

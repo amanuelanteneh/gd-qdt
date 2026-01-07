@@ -7,6 +7,25 @@ import scipy.linalg as scplin
 from scipy.stats import poisson
 
 
+def square_normalize(x: th.Tensor, eps: float = 1e-12) -> th.Tensor:
+    """
+    Square each entry and normalize rows so each row sums to 1.
+
+    Args:
+        x: Tensor of shape (M, N)
+        eps: Small constant for numerical stability
+
+    Returns:
+        Tensor of shape (M, N), where each row is a probability vector
+    """
+    # x2 = x.pow(2)
+    # row_sums = x2.sum(dim=1, keepdim=True)
+    # return x2 / (row_sums + eps)
+    x_abs = th.abs(x)
+    row_sums = x_abs.sum(dim=1, keepdim=True)
+    return x_abs / (row_sums + eps)
+
+
 def unstack(tensor: th.Tensor, N: int, M: int) -> th.Tensor:
     """Convert a stacked tensor of shape (MN,N) to shape (M,N,N)"""
     return tensor.view(M, N, N)

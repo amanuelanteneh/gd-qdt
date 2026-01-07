@@ -3,61 +3,11 @@ import cvxpy as cp
 import torch as th
 from torch import Tensor
 
-from utils import unstack
-
-
-def phase_sensitive_loss_gd(
-    targets: Tensor, factors: Tensor, probes: Tensor, lam: float
-) -> Tensor:
-    """
-    Differentiable loss for POVM optimization (vectorized).
-
-    Args:
-        targets: (num_probes, M) real tensor — target probabilities.
-        probes: (num_probes, N) complex tensor — probe state amplitudes.
-        factors: (M*N, N) complex tensor — stacked POVM factors A_i such that A_i†A_i = E_i.
-        lam: regularization parameter.
-
-    Returns:
-        Differentiable scalar loss tensor
-    """
-
-    N = probes.shape[1]
-    M = targets.shape[1]
-    U = probes.shape[0]
-    #targets = targets.T
-    # Reshape factors into (M, N, N)
-    factors = unstack(factors, N=N, M=M)
-
-    # Compute POVM elements E_m = A_m† A_m → shape (M, N, N)
-    povm = th.matmul(factors.conj().transpose(-1, -2), factors)
-
-    # Compute predicted probabilities:
-    # p_i(m) = <ψ_i| E_m |ψ_i>
-    # Einsum pattern explanation:
-    #   b = batch (probe index)
-    #   m = POVM element index
-    #   i,j = Hilbert indices
-    pred_probs = th.einsum("bi,mij,bj->bm", probes.conj(), povm, probes).real
-    # rows = []
-    # for i in range(M):
-    #     row = [th.trace(povm[i] @ probes[j]).real for j in range(U)]
-    #     rows.append(th.hstack(row))
-    
-    # pred_probs = th.vstack(rows)
-
-    # Squared error loss
-    sq_err = th.sum((pred_probs - targets) ** 2)
-
-    # L1 regularization on povm elements
-    reg = lam * th.sum(th.abs(povm))
-
-    # Total loss (negative for maximization if needed)
-    return sq_err + reg
+from utils import unstack, square_normalize
 
 
 def phase_insensitive_loss_gd(
-    targets: Tensor, logits: Tensor, probes: Tensor, lam_smoothing: float, lam_l1: float = 0.0
+    targets: Tensor, logits: Tensor, probes: Tensor, lam_smoothing: float, lam_l1: float = 0.0, prob_norm_fn: str = "smax"
 ):
     """
     Differentiable loss for POVM optimization (vectorized).
@@ -74,13 +24,22 @@ def phase_insensitive_loss_gd(
     """
 
     # Compute POVM elements
-    Pi = th.softmax(logits, dim=1) # rows are probability vectors
+    if prob_norm_fn == "sqr":
+        Pi = square_normalize(logits) # rows are probability vectors
+    elif prob_norm_fn == "smax":
+        Pi = th.softmax(logits, dim=1) # rows are probability vectors
+    else:
+        raise ValueError("The value provided is not a valid normalization option.")
 
     # Compute predicted probabilities:
     pred_probs = probes @ Pi
 
     # Squared error loss
     sq_err = th.sum((pred_probs - targets) ** 2)
+
+    # # MLE error loss
+    # eps = 1e-12
+    # sq_err = -th.sum(targets * th.log(pred_probs + eps))
 
     # Regularization term (smoothness across consecutive POVM elements)
     reg = lam_smoothing * th.sum((Pi[:-1, :] - Pi[1:, :]) ** 2)
@@ -133,3 +92,53 @@ def phase_insensitive_loss_cvx(
     problem.solve(solver=solver, verbose=False)
 
     return Pi.value, problem.value, problem.solver_stats.num_iters
+
+
+def phase_sensitive_loss_gd(
+    targets: Tensor, factors: Tensor, probes: Tensor, lam: float
+) -> Tensor:
+    """
+    Differentiable loss for POVM optimization (vectorized).
+
+    Args:
+        targets: (num_probes, M) real tensor — target probabilities.
+        probes: (num_probes, N) complex tensor — probe state amplitudes.
+        factors: (M*N, N) complex tensor — stacked POVM factors A_i such that A_i†A_i = E_i.
+        lam: regularization parameter.
+
+    Returns:
+        Differentiable scalar loss tensor
+    """
+
+    N = probes.shape[1]
+    M = targets.shape[1]
+    U = probes.shape[0]
+    #targets = targets.T
+    # Reshape factors into (M, N, N)
+    factors = unstack(factors, N=N, M=M)
+
+    # Compute POVM elements E_m = A_m† A_m → shape (M, N, N)
+    povm = th.matmul(factors.conj().transpose(-1, -2), factors)
+
+    # Compute predicted probabilities:
+    # p_i(m) = <ψ_i| E_m |ψ_i>
+    # Einsum pattern explanation:
+    #   b = batch (probe index)
+    #   m = POVM element index
+    #   i,j = Hilbert indices
+    pred_probs = th.einsum("bi,mij,bj->bm", probes.conj(), povm, probes).real
+    # rows = []
+    # for i in range(M):
+    #     row = [th.trace(povm[i] @ probes[j]).real for j in range(U)]
+    #     rows.append(th.hstack(row))
+    
+    # pred_probs = th.vstack(rows)
+
+    # Squared error loss
+    sq_err = th.sum((pred_probs - targets) ** 2)
+
+    # L1 regularization on povm elements
+    reg = lam * th.sum(th.abs(povm))
+
+    # Total loss (negative for maximization if needed)
+    return sq_err + reg
