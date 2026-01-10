@@ -113,14 +113,15 @@ def photodetector_povm(hilbert_dim: int, eta: float, dtype=th.float32) -> list[t
 
 def rand_DV_diag_povm(num_qubits: int, dtype=th.float32) -> list[th.Tensor]:
     """
-    Returns a POVM with 2^num_qubits all diagonal elements with Hilbert space 
-    dimension of size `2^num_qubits.
+    Returns the diagonals of the elements of 
+    POVM with 2^num_qubits elements all diagonal elements with Hilbert space 
+    dimension of size `2^num_qubits`.
 
     Args:
         num_qubits: Number of qubits (two level systems)
 
     Returns:
-        povms: list of N+1 tensors [Π₀, Π₁, ..., Π_N], each (hilbert_dim, hilbert_dim), diagonal.
+        povms: list of N=2^num_qubits tensors [Π₁, ..., Π_N], each of size (hilbert_dim,1).
     """
     num_povm_elements = 2**num_qubits
     hilbert_dim = 2**num_qubits
@@ -129,7 +130,7 @@ def rand_DV_diag_povm(num_qubits: int, dtype=th.float32) -> list[th.Tensor]:
     for _ in range(num_povm_elements):
         p = th.rand(hilbert_dim, dtype=dtype)  # create random 1D vector
         p = p / p.sum()  # normalize to probability vector
-        p = th.diag(p)   # (2^N, 2^N) diagonal matrix
+        #p = th.diag(p)   # (2^N, 2^N) diagonal matrix
         povm.append(p)    
 
     return povm 
